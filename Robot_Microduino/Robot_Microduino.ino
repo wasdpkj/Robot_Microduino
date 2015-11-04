@@ -1,3 +1,14 @@
+#if defined(__AVR_ATmega32U4__) || (__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega128RFA1__)
+#define motor_pin0A 7  //PWM
+#define motor_pin0B 5
+#define motor_pin1A 8  //PWM 
+#define motor_pin1B 6
+
+#define FIX_THROTTLE_A -1  //-1 or 1
+#define FIX_THROTTLE_B 1  //-1 or 1
+#define REVERSE_THROTTLE -1      //-1 or 1
+#define REVERSE_STEERING 1     //-1 or 1
+#else
 #define motor_pin0A 5  //PWM
 #define motor_pin0B 7
 #define motor_pin1A 6  //PWM 
@@ -5,9 +16,10 @@
 
 #define FIX_THROTTLE_A 1  //-1 or 1
 #define FIX_THROTTLE_B -1  //-1 or 1
-
 #define REVERSE_THROTTLE 1      //-1 or 1
 #define REVERSE_STEERING 1     //-1 or 1
+#endif
+
 
 #define MAX_THROTTLE 255 //最大油门 100~255
 #define MAX_STEERING 200 //最大转向 100~512
