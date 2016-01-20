@@ -75,6 +75,7 @@ void setup()
 #endif
 }
 
+unsigned long _Error_num=0;
 void loop()
 {
   boolean _Error = true;
@@ -85,9 +86,10 @@ void loop()
       int8_t _Protocol = Protocol(TYPE_NUM, CHANNEL_NUM);
       if (!_Protocol) {
 #ifdef _DEBUG
-        DEBUG.println("\n\r DATA ERROR");
+        DEBUG.println("\n\r \t \t DATA ERROR");
 #endif
         _Error = true;
+        _Error_num=0;
       }
       else if (_Protocol != -1) {
         read_data(&channal_data[0], &channal_data[1], &channal_data[2], &channal_data[3], &channal_data[4], &channal_data[5], &channal_data[6], &channal_data[7]);
@@ -95,6 +97,9 @@ void loop()
         DEBUG.println("\n\r \t DATA OK");
 #endif
         _Error = false;
+        _Error_num++;
+        DEBUG.print("\t\t\t");
+        DEBUG.println(_Error_num);
       }
     }
   }
@@ -106,9 +111,11 @@ void loop()
     throttle = map(channal_data[1], 1000, 2000, -MAX_THROTTLE, MAX_THROTTLE);
     steering = map(channal_data[0], 1000, 2000, -MAX_STEERING, MAX_STEERING);
 
+#ifdef _DEBUG
     Serial.print(throttle);
     Serial.print(",");
     Serial.println(steering);
+#endif
 
     MotorLeft.Driver(MotorLeft.GetData(throttle, steering, CHAN_LEFT));
     MotorRight.Driver(MotorRight.GetData(throttle, steering, CHAN_RIGHT));

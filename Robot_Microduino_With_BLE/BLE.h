@@ -9,7 +9,6 @@
 //-------------------------
 #define _DEBUG
 //#define _DEBUG_HEX
-//#define _DEBUG_DATA
 
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(4, 5); // RX, TX#define _DEBUG
@@ -77,7 +76,7 @@ int8_t Protocol(byte _channel, uint8_t _num)
 #ifdef _DEBUG
       DEBUG.print("\n\rType[");
       DEBUG.print(_channel, HEX);
-      DEBUG.println("] RAW: ");
+      DEBUG.println("]");
 #endif
       return -1;  //2
     }
@@ -190,10 +189,4 @@ void read_data(int16_t * _channal_0, int16_t * _channal_1, int16_t * _channal_2,
   _i = _channal_7;
   _i[0] = read16(buffer);
   //    _bufin[i] = read16(buffer);
-
-#ifdef _DEBUG
-#ifdef _DEBUG_DATA
-  DEBUG.println("\n\r Data OK");
-#endif
-#endif
 }
