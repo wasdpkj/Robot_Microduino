@@ -1,258 +1,122 @@
-#if defined(__AVR_ATmega32U4__) || (__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega128RFA1__)
-#define motor_pin0A 7  //PWM
-#define motor_pin0B 5
-#define motor_pin1A 8  //PWM 
-#define motor_pin1B 6
+/*
+  =================================
+  本作品采用知识共享 署名-非商业性使用-相同方式共享 3.0 未本地化版本 许可协议进行许可
+  访问 http://creativecommons.org/licenses/by-nc-sa/3.0/ 查看该许可协议
+  版权所有:Kejia Pan ,Email:wasdpkj@hotmail.com / pankejia@microduino.cc
+  =================================
 
-#define FIX_THROTTLE_A -1  //-1 or 1
-#define FIX_THROTTLE_B 1  //-1 or 1
-#define REVERSE_THROTTLE -1      //-1 or 1
-#define REVERSE_STEERING 1     //-1 or 1
-#else
-#define motor_pin0A 5  //PWM
-#define motor_pin0B 7
-#define motor_pin1A 6  //PWM 
-#define motor_pin1B 8
+  =================================
+  包含程序库、硬件支持包的IDE可在Getting Start中下载:
+  http://www.microduino.cc/download/
 
-#define FIX_THROTTLE_A 1  //-1 or 1
-#define FIX_THROTTLE_B -1  //-1 or 1
-#define REVERSE_THROTTLE 1      //-1 or 1
-#define REVERSE_STEERING 1     //-1 or 1
-#endif
+  =================================
+  IDE Support：
+  https://github.com/wasdpkj/Microduino-IDE-Support/
 
+  =================================
+  串口信息（Serial Monitor）,9600 baud,Both NL & CR
 
-#define MAX_THROTTLE 255 //最大油门 100~255
-#define MAX_STEERING 200 //最大转向 100~512
+  =================================
+  所需硬件：
+  Microduino USBTLL
+  Microduino Core/Core+/CoreUSB/CoreRF
+  Microduino Module BLE/nRF
+  Microduino Shield Robot
 
-//rf=======================================
-#include <RF24Network.h>
-#include <RF24.h>
-#include <SPI.h>
+  功能:
+  可兼容joypad遥控(nRF)与手机遥控(BLE)
+  开机自动识别是否有nRF模块,进入不同模式
+*/
 
-// nRF24L01(+) radio attached using Getting Started board
-RF24 radio(9, 10);
-RF24Network network(radio);
-const uint16_t this_node = 1;	//设置本机ID
-const uint16_t other_node = 0;
+#include "user_def.h"
+#include "nrf_Protocol.h"
 
-//--------------------------------
-struct send_a	//发送
-{
-  uint32_t node_ms;		//节点运行时间
-};
+///////////////////////////////////////////////////////////
+#include <Microduino_Motor.h>
 
-unsigned long last_sent = 0;	//定时器
+Motor MotorLeft(motor_pin0A, motor_pin0B);
+Motor MotorRight(motor_pin1A, motor_pin1B);
 
-//--------------------------------
-struct receive_a	//接收
-{
-  uint32_t ms;
-  uint16_t rf_CH0;
-  uint16_t rf_CH1;
-  uint16_t rf_CH2;
-  uint16_t rf_CH3;
-  uint16_t rf_CH4;
-  uint16_t rf_CH5;
-  uint16_t rf_CH6;
-  uint16_t rf_CH7;
-};
+///////////////////////////////////////////////////////////
+#include <Microduino_Protocol_SoftSer.h>
+#include <SoftwareSerial.h>
+SoftwareSerial mySerial(4, -1); // RX, TX (D5与电机冲突 屏蔽 只用RX)
+Protocol bleProtocol(&mySerial, TYPE_NUM);  //软串口,校验数据类
 
-unsigned long clock;	//主机运行时间
-int tem_xuan = 0;			//主机请求时序
-
-//----------------------------
-boolean node_STA = false;
-float throttle;
-float steering;
+///////////////////////////////////////////////////////////
+boolean Mode = 0; //nrf或者ble模式
+uint16_t channal_data[CHANNEL_NUM]; //8通道数据
+int16_t throttle = 0; //油门
+int16_t steering = 0; //转向
 
 unsigned long safe_ms = millis();
 
-void setup()
-{
-  Serial.begin(115200);
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Hello Microduino!");
 
-  pinMode(motor_pin0A, OUTPUT);
-  pinMode(motor_pin0B, OUTPUT);
-  pinMode(motor_pin1A, OUTPUT);
-  pinMode(motor_pin1B, OUTPUT);
-
-  //nRF==============================
-  SPI.begin();		//初始化SPI总线
-  radio.begin();
-  network.begin(/*channel*/ 70, /*node address*/ this_node);
-
-  Serial.println("===========start===========");
-}
-
-
-int motor_vol[2];
-// 主循环//////////////////////////////////////////////////////////////////////////
-void loop()
-{
-  //===============================================================
-  if (nRF(&throttle, &steering))
-  {
-    vorobot();
-    Serial.print(throttle);
-    Serial.print(",");
-    Serial.println(steering);
+  if (nrfBegin()) {
+    Mode = true;
+  }
+  else {
+    Mode = false;
+    bleProtocol.begin(BLE_SPEED);
   }
 
-  //===============================================================
-  if (safe_ms > millis()) safe_ms = millis();
-  if (millis() - safe_ms > 2000)
-  {
-    steering = 0;
-    throttle = 0;
-
-    digitalWrite(motor_pin0A, LOW);
-    digitalWrite(motor_pin0B, LOW);
-    digitalWrite(motor_pin1A, LOW);
-    digitalWrite(motor_pin1B, LOW);
-  }
-
+  MotorLeft.Fix(motor_fixL);
+  MotorRight.Fix(motor_fixR);
 }
 
-void vorobot()
-{
-  /*
-  if(node_STA)
-   {
-
-   }
-   */
-
-  //===============================================================
-  int motor_speed = 0;
-  motor_speed = REVERSE_THROTTLE * throttle;
-
-  motor_vol[0] = motor_speed;
-  motor_vol[1] = motor_speed;
-
-  //----------------------------------
-  int motor_steer = 0;
-  motor_steer = REVERSE_STEERING * steering;
-
-  motor_vol[0] -= motor_steer / 2;
-  motor_vol[1] += motor_steer / 2;
-
-  for (int a = 0; a < 2; a++)
-  {
-    if (motor_vol[a] > MAX_THROTTLE)
-    {
-      motor_vol[0] -= (motor_vol[a] - MAX_THROTTLE);
-      motor_vol[1] -= (motor_vol[a] - MAX_THROTTLE);
-    }
-    else if (motor_vol[a] < -MAX_THROTTLE)
-    {
-      motor_vol[0] -= (MAX_THROTTLE + motor_vol[a]);
-      motor_vol[1] -= (MAX_THROTTLE + motor_vol[a]);
+void loop() {
+  boolean _Error = true;
+  if (Mode) {
+    _Error = !nrfParse(channal_data);
+  }
+  else {
+    switch (bleProtocol.parse(channal_data, MODE_WHILE)) {
+      case P_NONE:  //DATA NONE
+        break;
+      case P_FINE:  //DATA OK
+        _Error = false;
+        break;
+      case P_ERROR: //DATA ERROR
+        mySerial.stopListening();
+        mySerial.listen();
+        break;
+      case P_TIMEOUT: //DATA TIMEOUT
+        mySerial.stopListening();
+        mySerial.listen();
+        break;
     }
   }
 
-  Serial.print(motor_vol[0]);
-  Serial.print(",");
-  Serial.print(motor_vol[1]);
-  Serial.println("");
-
-  motor_vol[0] *= FIX_THROTTLE_A;
-  motor_vol[1] *= FIX_THROTTLE_B;
-
-  motor_driver(0, -motor_vol[0]);
-  motor_driver(1, motor_vol[1]);
-}
-
-boolean motor_driver(int _motor_driver_num, int _motor_driver_vol)
-{
-  switch (_motor_driver_num)
-  {
-    case 0:
-      if (_motor_driver_vol == 0)
-      {
-        //Serial.println("0 OFF");
-        digitalWrite(motor_pin0A, LOW);
-        digitalWrite(motor_pin0B, LOW);
-      }
-      else if (_motor_driver_vol > 0)
-      {
-        //Serial.println("0 Z");
-        analogWrite(motor_pin0A, _motor_driver_vol);
-        digitalWrite(motor_pin0B, LOW);
-      }
-      else
-      {
-        //Serial.println("0 F");
-        analogWrite(motor_pin0A, 255 + _motor_driver_vol);
-        digitalWrite(motor_pin0B, HIGH);
-      }
-      break;
-    case 1:
-      if (_motor_driver_vol == 0)
-      {
-        //Serial.println("1 OFF");
-        digitalWrite(motor_pin1A, LOW);
-        digitalWrite(motor_pin1B, LOW);
-      }
-      else if (_motor_driver_vol > 0)
-      {
-        //Serial.println("1 Z");
-        analogWrite(motor_pin1A, _motor_driver_vol);
-        digitalWrite(motor_pin1B, LOW);
-      }
-      else
-      {
-        //Serial.println("1 F");
-        analogWrite(motor_pin1A, 255 + _motor_driver_vol);
-        digitalWrite(motor_pin1B, HIGH);
-      }
-      break;
-    default :
-      return false;
-  }
-  return true;
-}
-
-
-boolean nRF(float * _speed, float * _turn)
-{
-  network.update();
-  // Is there anything ready for us?
-  while ( network.available() )
-  {
-    // If so, grab it and print it out
-    RF24NetworkHeader header;
-    receive_a rec;
-    network.read(header, &rec, sizeof(rec));
-
-    clock = rec.ms;    //接收主机运行时间赋值
-    float * _i = _speed;
-    _i[0] = map(rec.rf_CH1, 1000, 2000, -MAX_THROTTLE, MAX_THROTTLE);
-    _i = _turn;
-    _i[0] = map(rec.rf_CH0, 1000, 2000, -MAX_STEERING, MAX_STEERING);
-
-    node_STA = (rec.rf_CH7 > 1500 ? true : false);    //接收请求时序赋值
-
-    {
-      //Serial.print("Sending...");
-      send_a sen = {
-        millis()
-      };  //把这些数据发送出去，对应前面的发送数组
-
-      RF24NetworkHeader header(0);
-      boolean ok = network.write(header, &sen, sizeof(sen));
-      safe_ms = millis();
-      if (ok)
-      {
-        return true;
-        //Serial.println("ok.");
-      }
-      else
-      {
-        return false;
-        //Serial.println("failed.");
-      }
-    }
-
+  if (!_Error) {
     safe_ms = millis();
+
+    throttle = map(channal_data[CHANNEL_THROTTLE], 1000, 2000, -MAX_THROTTLE, MAX_THROTTLE);
+    steering = map(channal_data[CHANNEL_STEERING], 1000, 2000, -MAX_STEERING, MAX_STEERING);
+
+    MotorLeft.Driver(MotorLeft.GetData(throttle, steering, CHAN_LEFT));
+    MotorRight.Driver(MotorRight.GetData(throttle, steering, CHAN_RIGHT));
+
+#ifdef _DEBUG
+    Serial.print(" \t DATA OK :[");
+    for (int a = 0; a < CHANNEL_NUM; a++) {
+      Serial.print(channal_data[a]);
+      Serial.print(" ");
+    }
+    Serial.print("],throttle:");
+    Serial.print(throttle);
+    Serial.print(",throttle:");
+    Serial.println(throttle);
+#endif
+  }
+
+  if (safe_ms > millis()) safe_ms = millis();
+  if (millis() - safe_ms > SAFE_TIME_OUT) {
+    MotorLeft.Free();
+    MotorRight.Free();
+    //MotorLeft.Brake();
+    //MotorRight.Brake();
   }
 }
