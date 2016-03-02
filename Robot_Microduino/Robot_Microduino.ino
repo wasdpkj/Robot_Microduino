@@ -93,8 +93,8 @@ void loop() {
   if (!_Error) {
     safe_ms = millis();
 
-    throttle = map(channal_data[CHANNEL_THROTTLE], 1000, 2000, -MAX_THROTTLE, MAX_THROTTLE);
-    steering = map(channal_data[CHANNEL_STEERING], 1000, 2000, -MAX_STEERING, MAX_STEERING);
+    throttle = map(channal_data[CHANNEL_THROTTLE - 1], 1000, 2000, -MAX_THROTTLE, MAX_THROTTLE);
+    steering = map(channal_data[CHANNEL_STEERING - 1], 1000, 2000, -MAX_STEERING, MAX_STEERING);
 
     MotorLeft.Driver(MotorLeft.GetData(throttle, steering, CHAN_LEFT));
     MotorRight.Driver(MotorRight.GetData(throttle, steering, CHAN_RIGHT));
