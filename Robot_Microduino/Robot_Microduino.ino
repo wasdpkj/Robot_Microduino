@@ -28,12 +28,11 @@
   开机自动识别是否有nRF模块,进入不同模式
 */
 
-#include "user_def.h"
+#include "userDef.h"
 #include "nrf_Protocol.h"
 
 ///////////////////////////////////////////////////////////
 #include <Microduino_Motor.h>
-
 Motor MotorLeft(motor_pin0A, motor_pin0B);
 Motor MotorRight(motor_pin1A, motor_pin1B);
 
