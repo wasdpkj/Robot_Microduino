@@ -106,8 +106,8 @@ void loop() {
     }
     Serial.print("],throttle:");
     Serial.print(throttle);
-    Serial.print(",throttle:");
-    Serial.println(throttle);
+    Serial.print(",steering:");
+    Serial.println(steering);
 #endif
   }
 
