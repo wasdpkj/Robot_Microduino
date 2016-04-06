@@ -19,7 +19,7 @@
   =================================
   所需硬件：
   Microduino USBTLL
-  Microduino Core/Core+/CoreUSB/CoreRF
+  Microduino Core/Core+/CoreRF/CoreUSB
   Microduino Module BLE/nRF
   Microduino Shield Robot
 
@@ -37,10 +37,16 @@ Motor MotorLeft(motor_pin0A, motor_pin0B);
 Motor MotorRight(motor_pin1A, motor_pin1B);
 
 ///////////////////////////////////////////////////////////
+#ifdef BLE_SoftSerial
 #include <Microduino_Protocol_SoftSer.h>
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(4, -1); // RX, TX (D5与电机冲突 屏蔽 只用RX)
 Protocol bleProtocol(&mySerial, TYPE_NUM);  //软串口,校验数据类
+#else
+#include <Microduino_Protocol_HardSer.h>
+Protocol bleProtocol(&BLE_HardSerial, TYPE_NUM);  //软串口,校验数据类
+#endif
+
 
 ///////////////////////////////////////////////////////////
 boolean Mode = 0; //nrf或者ble模式
@@ -79,12 +85,16 @@ void loop() {
         _Error = false;
         break;
       case P_ERROR: //DATA ERROR
+#ifdef BLE_SoftSerial    
         mySerial.stopListening();
         mySerial.listen();
+#endif        
         break;
       case P_TIMEOUT: //DATA TIMEOUT
+#ifdef BLE_SoftSerial
         mySerial.stopListening();
         mySerial.listen();
+#endif
         break;
     }
   }
@@ -99,7 +109,7 @@ void loop() {
     MotorRight.Driver(MotorRight.GetData(throttle, steering, CHAN_RIGHT));
 
 #ifdef _DEBUG
-    Serial.print(" \t DATA OK :[");
+    Serial.print("DATA OK :[");
     for (int a = 0; a < CHANNEL_NUM; a++) {
       Serial.print(channal_data[a]);
       Serial.print(" ");
