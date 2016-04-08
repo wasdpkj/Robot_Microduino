@@ -29,7 +29,7 @@
 */
 
 #include "userDef.h"
-#include "nrf_Protocol.h"
+#include "Protocol.h"
 
 ///////////////////////////////////////////////////////////
 #include <Microduino_Motor.h>
@@ -37,73 +37,26 @@ Motor MotorLeft(motor_pin0A, motor_pin0B);
 Motor MotorRight(motor_pin1A, motor_pin1B);
 
 ///////////////////////////////////////////////////////////
-#ifdef BLE_SoftSerial
-#include <Microduino_Protocol_SoftSer.h>
-#include <SoftwareSerial.h>
-SoftwareSerial mySerial(4, -1); // RX, TX (D5与电机冲突 屏蔽 只用RX)
-Protocol bleProtocol(&mySerial, TYPE_NUM);  //软串口,校验数据类
-#else
-#include <Microduino_Protocol_HardSer.h>
-Protocol bleProtocol(&BLE_HardSerial, TYPE_NUM);  //软串口,校验数据类
-#endif
-
-
-///////////////////////////////////////////////////////////
-boolean Mode = 0; //nrf或者ble模式
-uint16_t channal_data[CHANNEL_NUM]; //8通道数据
+uint16_t channalData[CHANNEL_NUM]; //8通道数据
+bool mode = 0; //nrf或者ble模式
 int16_t throttle = 0; //油门
 int16_t steering = 0; //转向
-
 unsigned long safe_ms = millis();
 
 void setup() {
   Serial.begin(9600);
   Serial.println("Hello Microduino!");
 
-  if (nrfBegin()) {
-    Mode = true;
-  }
-  else {
-    Mode = false;
-    bleProtocol.begin(BLE_SPEED);
-  }
+  mode = protocolSetup();  //遥控接收器初始化
 
   MotorLeft.Fix(motor_fixL);
   MotorRight.Fix(motor_fixR);
 }
 
 void loop() {
-  boolean _Error = true;
-  if (Mode) {
-    _Error = !nrfParse(channal_data);
-  }
-  else {
-    switch (bleProtocol.parse(channal_data, MODE_WHILE)) {
-      case P_NONE:  //DATA NONE
-        break;
-      case P_FINE:  //DATA OK
-        _Error = false;
-        break;
-      case P_ERROR: //DATA ERROR
-#ifdef BLE_SoftSerial    
-        mySerial.stopListening();
-        mySerial.listen();
-#endif        
-        break;
-      case P_TIMEOUT: //DATA TIMEOUT
-#ifdef BLE_SoftSerial
-        mySerial.stopListening();
-        mySerial.listen();
-#endif
-        break;
-    }
-  }
-
-  if (!_Error) {
-    safe_ms = millis();
-
-    throttle = map(channal_data[CHANNEL_THROTTLE - 1], 1000, 2000, -MAX_THROTTLE, MAX_THROTTLE);
-    steering = map(channal_data[CHANNEL_STEERING - 1], 1000, 2000, -MAX_STEERING, MAX_STEERING);
+  if (protocolRead(channalData, mode)) { //判断是否接收到遥控信号
+    throttle = map(channalData[CHANNEL_THROTTLE], 1000, 2000, -MAX_THROTTLE, MAX_THROTTLE);
+    steering = map(channalData[CHANNEL_STEERING], 1000, 2000, -MAX_STEERING, MAX_STEERING);
 
     MotorLeft.Driver(MotorLeft.GetData(throttle, steering, CHAN_LEFT));
     MotorRight.Driver(MotorRight.GetData(throttle, steering, CHAN_RIGHT));
@@ -111,7 +64,7 @@ void loop() {
 #ifdef _DEBUG
     Serial.print("DATA OK :[");
     for (int a = 0; a < CHANNEL_NUM; a++) {
-      Serial.print(channal_data[a]);
+      Serial.print(channalData[a]);
       Serial.print(" ");
     }
     Serial.print("],throttle:");
@@ -119,6 +72,7 @@ void loop() {
     Serial.print(",steering:");
     Serial.println(steering);
 #endif
+    safe_ms = millis();
   }
 
   if (safe_ms > millis()) safe_ms = millis();

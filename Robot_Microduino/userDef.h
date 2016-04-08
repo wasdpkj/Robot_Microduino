@@ -17,8 +17,8 @@
 #define SAFE_TIME_OUT 250   //失控保护时间
 #define MAX_THROTTLE 255 //最大油门 < 255
 #define MAX_STEERING 512 //最大转向 < 512
-#define CHANNEL_THROTTLE  2 //油门通道
-#define CHANNEL_STEERING  1 //转向通道
+#define CHANNEL_THROTTLE  1 //油门通道
+#define CHANNEL_STEERING  0 //转向通道
 
 #if defined(__AVR_ATmega32U4__) || (__AVR_ATmega1284P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega128RFA1__)
 #define motor_pin0A 8  //PWM
