@@ -8,7 +8,7 @@ SoftwareSerial mySerial(4, -1); // RX, TX (D5与电机冲突 屏蔽 只用RX)
 Protocol bleProtocol(&mySerial, TYPE_NUM);  //软串口,校验数据类
 #else
 #include <Microduino_Protocol_HardSer.h>
-Protocol bleProtocol(&BLE_HardSerial, TYPE_NUM);  //硬串口,校验数据类
+Protocol bleProtocol(&BLE_HardSerial, TYPE_NUM);  //软串口,校验数据类
 #endif
 
 //nRF//////////////////////
